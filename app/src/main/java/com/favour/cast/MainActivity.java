@@ -1,42 +1,17 @@
 package com.favour.cast;
 
-import android.Manifest;
-import android.app.Activity;
-import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.net.Uri;
-import android.os.Bundle;
-import android.provider.Settings;
-import android.view.Gravity;
-import android.view.View;
-import android.widget.*;
-import androidx.appcompat.app.AppCompatActivity;
-import java.io.File;
-import java.util.*;
+import android.Manifest;import android.app.Activity;import android.content.*;import android.content.pm.PackageManager;import android.net.Uri;import android.os.*;import android.view.Gravity;import android.widget.*;import androidx.appcompat.app.AppCompatActivity;import java.util.*;
 
-public class MainActivity extends AppCompatActivity {
-    private Spinner tvSpinner; private EditText url; private TextView status; private Button scan, pick, cast, play, pause, stop;
-    private final ArrayList<UpnpClient.Renderer> devices=new ArrayList<>(); private UpnpClient.Renderer selected; private LocalMediaServer server;
-    private static final int PICK=20, MEDIA=21;
-
-    @Override public void onCreate(Bundle b){super.onCreate(b); buildUi(); requestMedia(); scanDevices();}
-    private void buildUi(){
-        LinearLayout root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(28,28,28,28);
-        TextView title=new TextView(this); title.setText("LG TV Cast"); title.setTextSize(28); title.setGravity(Gravity.CENTER); root.addView(title,new LinearLayout.LayoutParams(-1,70));
-        status=new TextView(this); status.setText("Scanning for TVs..."); root.addView(status);
-        tvSpinner=new Spinner(this); root.addView(tvSpinner,new LinearLayout.LayoutParams(-1,60));
-        scan=new Button(this); scan.setText("Scan TVs"); root.addView(scan); scan.setOnClickListener(v->scanDevices());
-        url=new EditText(this); url.setHint("Direct video URL (optional)"); root.addView(url,new LinearLayout.LayoutParams(-1,60));
-        pick=new Button(this); pick.setText("Choose video from phone"); root.addView(pick); pick.setOnClickListener(v->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.setType("video/*");i.addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,PICK);});
-        cast=new Button(this); cast.setText("CAST TO TV"); root.addView(cast); cast.setOnClickListener(v->castMedia());
-        LinearLayout controls=new LinearLayout(this); play=new Button(this);play.setText("Play");pause=new Button(this);pause.setText("Pause");stop=new Button(this);stop.setText("Stop");controls.addView(play,new LinearLayout.LayoutParams(0,60,1));controls.addView(pause,new LinearLayout.LayoutParams(0,60,1));controls.addView(stop,new LinearLayout.LayoutParams(0,60,1));root.addView(controls);
-        play.setOnClickListener(v->action("Play"));pause.setOnClickListener(v->action("Pause"));stop.setOnClickListener(v->action("Stop"));setContentView(root);
-    }
-    private void requestMedia(){if(android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.READ_MEDIA_VIDEO)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.READ_MEDIA_VIDEO},MEDIA);}
-    private void scanDevices(){status.setText("Scanning local network...");new Thread(()->{try{ArrayList<UpnpClient.Renderer> r=UpnpClient.discover(4000);runOnUiThread(()->{devices.clear();devices.addAll(r);String[] names=new String[r.size()];for(int i=0;i<r.size();i++)names[i]=r.get(i).name;tvSpinner.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,names));status.setText(r.isEmpty()?"No DLNA TV found. Put phone and TV on same Wi-Fi.":r.size()+" TV(s) found");});}catch(Exception e){runOnUiThread(()->status.setText("Scan failed: "+e.getMessage()));}}).start();}
-    private void castMedia(){if(devices.isEmpty()){toast("Scan and select a TV first");return;}selected=devices.get(tvSpinner.getSelectedItemPosition());String u=url.getText().toString().trim();if(!u.isEmpty()){sendUri(u);return;}toast("Choose a video or enter a direct video URL");}
-    private void sendUri(String u){new Thread(()->{try{UpnpClient.setUri(selected,u);UpnpClient.play(selected);runOnUiThread(()->status.setText("Casting to "+selected.name));}catch(Exception e){runOnUiThread(()->toast("Cast error: "+e.getMessage()));}}).start();}
-    private void action(String a){if(selected==null){toast("Select a TV first");return;}new Thread(()->{try{UpnpClient.action(selected,a); }catch(Exception e){runOnUiThread(()->toast(e.getMessage()));}}).start();}
-    @Override protected void onActivityResult(int r,int c,Intent d){super.onActivityResult(r,c,d);if(r==PICK&&c==Activity.RESULT_OK&&d!=null){try{getContentResolver().takePersistableUriPermission(d.getData(),Intent.FLAG_GRANT_READ_URI_PERMISSION); }catch(Exception ignored){}; url.setText(d.getData().toString());status.setText("Video selected. Tap CAST TO TV.");}}
-    private void toast(String s){runOnUiThread(()->Toast.makeText(this,s,Toast.LENGTH_LONG).show());}
+public class MainActivity extends AppCompatActivity{
+ private Spinner tvSpinner;private EditText url;private TextView status;private final ArrayList<UpnpClient.Renderer> devices=new ArrayList<>();private UpnpClient.Renderer selected;private LocalMediaServer server;private Uri selectedUri;private static final int PICK=20,MEDIA=21;
+ @Override public void onCreate(Bundle b){super.onCreate(b);buildUi();requestMedia();scanDevices();}
+ private void buildUi(){LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(28,28,28,28);TextView title=new TextView(this);title.setText("LG TV Cast");title.setTextSize(28);title.setGravity(Gravity.CENTER);root.addView(title,new LinearLayout.LayoutParams(-1,70));status=new TextView(this);status.setText("Ready");root.addView(status);tvSpinner=new Spinner(this);root.addView(tvSpinner,new LinearLayout.LayoutParams(-1,60));Button scan=new Button(this);scan.setText("Scan TVs");root.addView(scan);scan.setOnClickListener(v->scanDevices());url=new EditText(this);url.setHint("Direct video URL (optional)");root.addView(url,new LinearLayout.LayoutParams(-1,60));Button pick=new Button(this);pick.setText("Choose video from phone");root.addView(pick);pick.setOnClickListener(v->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.setType("video/*");i.addCategory(Intent.CATEGORY_OPENABLE);i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);startActivityForResult(i,PICK);});Button cast=new Button(this);cast.setText("CAST TO TV");root.addView(cast);cast.setOnClickListener(v->castMedia());LinearLayout controls=new LinearLayout(this);Button play=new Button(this);play.setText("Play");Button pause=new Button(this);pause.setText("Pause");Button stop=new Button(this);stop.setText("Stop");controls.addView(play,new LinearLayout.LayoutParams(0,60,1));controls.addView(pause,new LinearLayout.LayoutParams(0,60,1));controls.addView(stop,new LinearLayout.LayoutParams(0,60,1));root.addView(controls);play.setOnClickListener(v->action("Play"));pause.setOnClickListener(v->action("Pause"));stop.setOnClickListener(v->action("Stop"));setContentView(root);}
+ private void requestMedia(){if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.READ_MEDIA_VIDEO)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.READ_MEDIA_VIDEO},MEDIA);}
+ private void scanDevices(){status.setText("Scanning local network...");new Thread(()->{try{ArrayList<UpnpClient.Renderer> r=UpnpClient.discover(4000);runOnUiThread(()->{devices.clear();devices.addAll(r);String[] names=new String[r.size()];for(int i=0;i<r.size();i++)names[i]=r.get(i).name;tvSpinner.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,names));status.setText(r.isEmpty()?"No DLNA TV found. Put phone and TV on same Wi-Fi.":r.size()+" TV(s) found");});}catch(Exception e){runOnUiThread(()->status.setText("Scan failed: "+e.getMessage()));}}).start();}
+ private void castMedia(){if(devices.isEmpty()){toast("Scan and select a TV first");return;}selected=devices.get(tvSpinner.getSelectedItemPosition());String u=url.getText().toString().trim();if(selectedUri!=null){new Thread(()->{try{if(server!=null)server.stop();server=new LocalMediaServer(this,selectedUri);server.start();sendUri(server.getUrl());}catch(Exception e){toast("Local server: "+e.getMessage());}}).start();}else if(!u.isEmpty())sendUri(u);else toast("Choose a video or enter a direct video URL");}
+ private void sendUri(String u){new Thread(()->{try{UpnpClient.setUri(selected,u);UpnpClient.play(selected);runOnUiThread(()->status.setText("Casting to "+selected.name));}catch(Exception e){toast("Cast error: "+e.getMessage());}}).start();}
+ private void action(String a){if(selected==null){toast("Select a TV first");return;}new Thread(()->{try{UpnpClient.action(selected,a);}catch(Exception e){toast(e.getMessage());}}).start();}
+ @Override protected void onActivityResult(int r,int c,Intent d){super.onActivityResult(r,c,d);if(r==PICK&&c==Activity.RESULT_OK&&d!=null){selectedUri=d.getData();try{getContentResolver().takePersistableUriPermission(selectedUri,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(Exception ignored){}url.setText("");status.setText("Video selected. Tap CAST TO TV.");}}
+ @Override protected void onDestroy(){if(server!=null)server.stop();super.onDestroy();}
+ private void toast(String s){runOnUiThread(()->Toast.makeText(this,s,Toast.LENGTH_LONG).show());}
 }
